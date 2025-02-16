@@ -1,12 +1,7 @@
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import javax.swing.*;
 
 public class AppChatServidor {
     private static final int PORT = 12345;
@@ -14,72 +9,62 @@ public class AppChatServidor {
     private static Map<String, PrintWriter> clients = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
-        try{
+        try {
             serverSocket = new ServerSocket(PORT);
-            System.out.println("Servidor aguardando conexão...");
+            System.out.println("Servidor aguardando conexões...");
 
-            while(true){
-                Socket clienteSocket = serverSocket.accept();
-                System.out.println("Cliente conectado: " + clienteSocket.getInetAddress());
-
-                // Criação da nova thread para cada cliente conectado
-                new Thread(new ClienteHandler(clienteSocket)).start();
-
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                new Thread(new ClienteHandler(clientSocket)).start();
             }
-            
-        }catch(Exception e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // -----------------------------------------------------------------------------------
     private static class ClienteHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
         private String clientName;
 
-        public ClienteHandler(Socket socket){
+        public ClienteHandler(Socket socket) {
             this.socket = socket;
             try {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        public void run(){
-                try {
-                // Receber o nome do cliente
-                out.println("Digite seu nome:");
+        public void run() {
+            try {
                 clientName = in.readLine();
                 synchronized (clients) {
                     clients.put(clientName, out);
+                    broadcastUserList();
+                    broadcastMessage("[Servidor]: " + clientName + " entrou no chat.");
                 }
-                System.out.println(clientName + " entrou no chat.");
 
-                // Enviar mensagem do cliente para o servidor
                 String message;
                 while ((message = in.readLine()) != null) {
-                    if (message.startsWith("/send")) {
-                        // Comando para enviar mensagem para outro cliente
+                    if (message.startsWith("/send ")) {
                         String[] parts = message.split(" ", 3);
                         if (parts.length == 3) {
-                            String target = parts[1];
-                            String msg = parts[2];
-                            sendMessageToClient(target, msg);
+                            sendMessageToClient(parts[1], parts[2]);
                         }
                     } else {
-                        System.out.println(clientName + ": " + message);
+                        broadcastMessage(clientName + ": " + message);
                     }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
-                // Remover cliente da lista ao desconectar
                 synchronized (clients) {
                     clients.remove(clientName);
+                    broadcastUserList();
+                    broadcastMessage("[Servidor]: " + clientName + " saiu do chat.");
                 }
                 try {
                     socket.close();
@@ -89,12 +74,29 @@ public class AppChatServidor {
             }
         }
 
-        private void sendMessageToClient(String target, String message){
+        private void sendMessageToClient(String target, String message) {
             PrintWriter targetOut = clients.get(target);
-            if(targetOut != null){
+            if (targetOut != null) {
                 targetOut.println(clientName + " diz: " + message);
-            }else{
-                out.println("Usuário "+ target + "não encontrado.");
+            } else {
+                out.println("Usuário " + target + " não encontrado.");
+            }
+        }
+
+        private void broadcastMessage(String message) {
+            synchronized (clients) {
+                for (PrintWriter clientOut : clients.values()) {
+                    clientOut.println(message);
+                }
+            }
+        }
+
+        private void broadcastUserList() {
+            synchronized (clients) {
+                String userList = "/users " + String.join(",", clients.keySet());
+                for (PrintWriter clientOut : clients.values()) {
+                    clientOut.println(userList);
+                }
             }
         }
     }

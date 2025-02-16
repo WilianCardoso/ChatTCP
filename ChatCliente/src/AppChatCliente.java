@@ -1,78 +1,62 @@
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
-
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
 
 public class AppChatCliente extends JFrame {
     private JTextArea taChat;
+    private JTextArea taUsers;
     private JTextField tfMessage;
     private JTextField tfRecipient;
     private JButton btnSend;
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
-    private String serverAdress = "10.74.241.66"; // Endereço do servidor
-    private int port = 12345; // Porta do servidor
+    private String serverAdress;
+    private int port = 12345;
 
     public AppChatCliente() {
-        // Configurações da janela
         setTitle("Chat Client");
-        setSize(400, 300);
+        setSize(500, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        // Área de chat
         taChat = new JTextArea();
         taChat.setEditable(false);
         add(new JScrollPane(taChat), BorderLayout.CENTER);
 
+        // Área de usuários online
+        taUsers = new JTextArea();
+        taUsers.setEditable(false);
+        taUsers.setPreferredSize(new Dimension(150, 0)); // Define largura fixa
+        add(new JScrollPane(taUsers), BorderLayout.EAST);
+
+        // Painel inferior para mensagens
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
 
-        // Adicionando o label e o campo de texto para o destinatário
-        JPanel recipientPanel = new JPanel();
-        recipientPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        JLabel lblRecipient = new JLabel("Destinatário:");
-        recipientPanel.add(lblRecipient);
-        tfRecipient = new JTextField(15);
+        // Campo para destinatário
+        JPanel recipientPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        recipientPanel.add(new JLabel("Para:"));
+        tfRecipient = new JTextField(10);
         recipientPanel.add(tfRecipient);
         panel.add(recipientPanel, BorderLayout.NORTH);
 
-        // Adicionando o label e o campo de texto para a mensagem
-        JPanel messagePanel = new JPanel();
-        messagePanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        JLabel lblMessage = new JLabel("Mensagem:");
-        messagePanel.add(lblMessage);
+        // Campo para mensagem
+        JPanel messagePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        messagePanel.add(new JLabel("Mensagem:"));
         tfMessage = new JTextField(20);
         messagePanel.add(tfMessage);
         panel.add(messagePanel, BorderLayout.CENTER);
 
         // Botão de envio
         btnSend = new JButton("Enviar");
+        btnSend.addActionListener(e -> sendMessage());
         panel.add(btnSend, BorderLayout.EAST);
 
         add(panel, BorderLayout.SOUTH);
-
-        // Ação do botão de enviar
-        btnSend.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                sendMessage();
-            }
-        });
 
         // Conectar ao servidor
         connectToServer();
@@ -83,15 +67,12 @@ public class AppChatCliente extends JFrame {
 
     private void connectToServer() {
         try {
-            // Selecionar o Servidor
-
-            String iphost = JOptionPane.showInputDialog("Digite o ip do servidor:");
-            serverAdress = iphost;
+            serverAdress = JOptionPane.showInputDialog("Digite o IP do servidor:");
             socket = new Socket(serverAdress, port);
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // Enviar o nome do cliente
+            // Enviar nome do usuário
             String name = JOptionPane.showInputDialog("Digite seu nome:");
             setTitle("Chat Client - " + name);
             out.println(name);
@@ -104,7 +85,7 @@ public class AppChatCliente extends JFrame {
         String recipient = tfRecipient.getText();
         String message = tfMessage.getText();
         if (!message.isEmpty() && !recipient.isEmpty()) {
-            out.println("/send " + recipient + " " + message); // Envia a mensagem para o servidor
+            out.println("/send " + recipient + " " + message);
             taChat.append("Você (para " + recipient + "): " + message + "\n");
             tfMessage.setText("");
         }
@@ -115,7 +96,11 @@ public class AppChatCliente extends JFrame {
             try {
                 String message;
                 while ((message = in.readLine()) != null) {
-                    taChat.append(message + "\n");
+                    if (message.startsWith("/users ")) {
+                        updateUserList(message.substring(7));
+                    } else {
+                        taChat.append(message + "\n");
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -123,11 +108,13 @@ public class AppChatCliente extends JFrame {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                new AppChatCliente().setVisible(true);
-            }
+    private void updateUserList(String users) {
+        SwingUtilities.invokeLater(() -> {
+            taUsers.setText(users.replace(",", "\n"));
         });
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new AppChatCliente().setVisible(true));
     }
 }
