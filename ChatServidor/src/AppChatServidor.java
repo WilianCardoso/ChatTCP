@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import javax.swing.*;
 
 public class AppChatServidor {
     private static final int PORT = 12345;
@@ -23,13 +22,11 @@ public class AppChatServidor {
     }
 
     private static class ClienteHandler implements Runnable {
-        private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
         private String clientName;
 
         public ClienteHandler(Socket socket) {
-            this.socket = socket;
             try {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
@@ -65,11 +62,6 @@ public class AppChatServidor {
                     clients.remove(clientName);
                     broadcastUserList();
                     broadcastMessage("[Servidor]: " + clientName + " saiu do chat.");
-                }
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
             }
         }
