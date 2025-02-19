@@ -13,6 +13,7 @@ public class AppChatCliente extends JFrame {
     private PrintWriter out;
     private BufferedReader in;
     private String serverAdress;
+    private String nameUser;
     private int port = 12345;
 
     public AppChatCliente() {
@@ -111,6 +112,14 @@ public class AppChatCliente extends JFrame {
         SwingUtilities.invokeLater(() -> {
             taUsers.setText(users.replace(",", "\n"));
         });
+    }
+
+    private void verifyName() {
+        nameUser = nameUser.trim();
+
+        if (nameUser.contains(" ")) {
+            nameUser = nameUser.replace(" ", "_");
+        }
     }
 
     public static void main(String[] args) {
